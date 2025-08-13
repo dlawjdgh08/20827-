@@ -1,40 +1,36 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import altair as alt
 
-# 페이지 제목
-st.title("🌏 Global MBTI Distribution & Correlation Dashboard")
+st.set_page_config(page_title="국가별 MBTI Top10", layout="centered")
+st.title("🌍 국가별 MBTI 유형 Top 10")
 
-# 파일 업로드
-dist_file = st.file_uploader("Upload MBTI Distribution CSV", type=["csv"])
-corr_file = st.file_uploader("Upload MBTI Correlation CSV", type=["csv"])
+# CSV 불러오기
+df = pd.read_csv("countriesMBTI_16types.csv")
 
-if dist_file is not None:
-    df_dist = pd.read_csv(dist_file)
-    st.subheader("MBTI Type Distribution")
-    st.dataframe(df_dist)
+# 국가 선택
+selected_country = st.selectbox("국가를 선택하세요", df["Country"].unique())
 
-    # 막대그래프
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.bar(df_dist["MBTI"], df_dist["AvgPercentAcrossCountries"], color="skyblue", edgecolor="black")
-    ax.set_xlabel("MBTI Type")
-    ax.set_ylabel("Average % Across Countries")
-    ax.set_title("Global MBTI Distribution")
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+# 해당 국가 Top10 데이터 추출
+top10_df = (
+    df[df["Country"] == selected_country]
+    .drop(columns=["Country"])
+    .T.reset_index()
+)
+top10_df.columns = ["MBTI", "비율"]
+top10_df = top10_df.sort_values(by="비율", ascending=False).head(10)
 
-if corr_file is not None:
-    df_corr = pd.read_csv(corr_file, index_col=0)
-    st.subheader("MBTI Type Correlation Matrix")
-    st.dataframe(df_corr)
+# Altair 바 차트
+chart = (
+    alt.Chart(top10_df)
+    .mark_bar()
+    .encode(
+        x=alt.X("비율:Q", title="비율"),
+        y=alt.Y("MBTI:N", sort="-x"),
+        color="MBTI:N",
+        tooltip=["MBTI", "비율"]
+    )
+    .properties(width=600, height=400, title=f"{selected_country} MBTI Top 10")
+)
 
-    # 히트맵 (matplotlib으로 직접 그림)
-    fig, ax = plt.subplots(figsize=(8, 6))
-    cax = ax.matshow(df_corr, cmap="coolwarm")
-    fig.colorbar(cax)
-    ax.set_xticks(range(len(df_corr.columns)))
-    ax.set_yticks(range(len(df_corr.index)))
-    ax.set_xticklabels(df_corr.columns, rotation=90)
-    ax.set_yticklabels(df_corr.index)
-    ax.set_title("Correlation Heatmap", pad=20)
-    st.pyplot(fig)
+st.altair_chart(chart, use_container_width=True)
